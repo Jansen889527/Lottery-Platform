@@ -65,6 +65,8 @@
   .offline-tag{display:inline-block;background:#fff0f0;color:var(--red);font-size:11px;border-radius:5px;padding:2px 7px;margin-left:6px}
   .loading{text-align:center;color:var(--sub);padding:30px}
   .pill{display:inline-block;font-size:11px;color:var(--sub);background:#f0f0f3;border-radius:20px;padding:2px 9px;margin:2px}
+  .btn-primary{display:block;width:100%;border:0;background:var(--red);color:#fff;font-size:15px;font-weight:700;padding:13px;border-radius:12px;margin:14px 0;cursor:pointer}
+  .btn-primary:active{opacity:.85}
 </style>
 </head>
 <body>
@@ -77,7 +79,7 @@
   <button data-tab="today" class="active">今日开奖</button>
   <button data-tab="history">往期开奖</button>
   <button data-tab="trend">预测走势</button>
-  <button data-tab="expert">专家预测</button>
+  <button data-tab="random">随机预测</button>
 </nav>
 
 <main>
@@ -93,8 +95,8 @@
     <div id="trend-body"><div class="loading">加载中…</div></div>
   </section>
 
-  <section id="tab-expert" class="tab-panel">
-    <div id="expert-body"><div class="loading">加载中…</div></div>
+  <section id="tab-random" class="tab-panel">
+    <div id="random-body"><div class="loading">加载中…</div></div>
   </section>
 </main>
 
@@ -112,7 +114,7 @@ const PROXIES = [
 
 const PRIMES = new Set([2,3,5,7,11,13,17,19,23,29,31]);
 let TREND = null;
-let EXPERT_DONE = false;
+let RANDOM_DONE = false;
 let HISTORY = [];
 
 function toast(msg){
@@ -122,10 +124,9 @@ function toast(msg){
 }
 function money(m){ return m ? '¥'+Number(m).toLocaleString() : '-'; }
 function ball(n, type){ return '<span class="ball '+type+'">'+String(n).padStart(2,'0')+'</span>'; }
-function balls(reds, blue){
-  return reds.map(n=>ball(n,'red')).join('') +
-         '<span class="ball plus">+</span>' +
-         ball(blue,'blue');
+function balls(reds, blue, sep){
+  const plus = sep === false ? '' : '<span class="ball plus">+</span>';
+  return reds.map(n=>ball(n,'red')).join('') + plus + ball(blue,'blue');
 }
 
 // 把中彩网原始接口数据规范化为标准结构
@@ -170,7 +171,7 @@ function renderToday(d){
   el.innerHTML =
     '<div class="card">'+
       '<div class="issue-head">第 '+d.code+' 期 · '+d.date+(d.week?'（周'+d.week+'）':'')+'</div>'+
-      '<div class="balls-row big">'+balls(d.red,d.blue)+'</div>'+
+      '<div class="balls-row big">'+balls(d.red,d.blue,false)+'</div>'+
       '<div class="prize">'+
         '<div><span class="lab">一等奖</span>'+d.p1.count+' 注<br>'+money(d.p1.money)+'</div>'+
         '<div><span class="lab">二等奖</span>'+d.p2.count+' 注<br>'+money(d.p2.money)+'</div>'+
@@ -314,7 +315,7 @@ function renderTrend(t){
   el.innerHTML =
     '<div class="card">'+
       '<div class="reco-title">综合统计推荐（历史 <b>'+t.count+'</b> 期：频率+遗漏回补+近期热度）</div>'+
-      '<div class="balls-row big">'+balls(t.recommend.red, t.recommend.blue)+'</div>'+
+      '<div class="balls-row big">'+balls(t.recommend.red, t.recommend.blue,false)+'</div>'+
       '<div class="cnt">红色球=推荐6个 · 蓝色球=推荐1个 · 仅供参考</div>'+
     '</div>'+
     '<div class="card"><div class="dims">'+
@@ -338,71 +339,31 @@ function renderTrend(t){
     '<div class="warn">走势维度（大小/奇偶/质合/012路/和值/AC/跨度/区间/尾数/遗漏/连号/重号/周几）均由中彩网历史开奖号码本地计算，非抓取第三方图表。</div>';
 }
 
-/* ---------- 模块4：专家预测（best-effort + 回退） ---------- */
-async function fetchExperts(){
-  const url = 'https://lottery.sina.com.cn/number/lotto.shtml';
-  for(const prox of PROXIES){
-    try{
-      const ctrl = new AbortController();
-      const tid = setTimeout(()=>ctrl.abort(), 12000);
-      const r = await fetch(prox(url), {signal:ctrl.signal, cache:'no-store'});
-      clearTimeout(tid);
-      if(!r.ok) continue;
-      const html = await r.text();
-      // 尽力从页面文本中提取专家推荐的「6红+1蓝」组合并聚合
-      const combos = parseExperts(html);
-      if(combos) return combos;
-    }catch(e){ console.warn('expert fetch failed', e); }
-  }
-  return null;
+/* ---------- 模块4：随机预测（基于模块3高概率候选随机生成） ---------- */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
 }
 
-function parseExperts(html){
-  // 新浪专家页为动态 SPA，纯前端通常取不到结构化号码；此处做尽力正则提取
-  try{
-    const votes = {};
-    const re = /红(?:球)?[：:\s]*?([0-2]\d(?:\s*[、,，\s]\s*[0-2]\d){5})\s*蓝(?:球)?[：:\s]*?([0-1]\d)/g;
-    let m;
-    while((m = re.exec(html))){
-      const reds = m[1].match(/[0-2]\d/g).map(Number).sort((a,b)=>a-b);
-      const blue = Number(m[2]);
-      if(reds.length===6 && blue>=1 && blue<=16){
-        const key = reds.join(',')+'+'+blue;
-        votes[key] = (votes[key]||0)+1;
-      }
-    }
-    if(Object.keys(votes).length===0) return null;
-    const best = Object.keys(votes).sort((a,b)=>votes[b]-votes[a])[0];
-    const parts = best.split('+');
-    return {red: parts[0].split(',').map(Number), blue: Number(parts[1]), count: Object.keys(votes).length, votes};
-  }catch(e){ return null; }
-}
-
-function renderExpert(combos){
-  const el = document.getElementById('expert-body');
-  if(combos && combos.red && combos.red.length===6){
-    const items = Object.keys(combos.votes).sort((a,b)=>combos.votes[b]-combos.votes[a]).slice(0,6)
-      .map(k=>'<span class="pill">'+k.replace(/,/g,' ')+' ×'+combos.votes[k]+'</span>').join('');
-    el.innerHTML =
-      '<div class="card"><div class="reco-title">整合 <b>'+combos.count+'</b> 组专家推荐，取最高频组合</div>'+
-      '<div class="balls-row big">'+balls(combos.red, combos.blue)+'</div></div>'+
-      '<div class="card"><h4 style="margin:0 0 8px;font-size:13px">出现频次较高的组合</h4>'+items+'</div>';
-  } else {
-    const t = TREND;
-    el.innerHTML =
-      '<div class="warn">⚠️ 新浪专家预测页面为动态加载（SPA + 反爬），本单页无法稳定抓取真实专家号码。'+
-      '已自动回退到「预测走势」模块的历史统计推荐（仅供参考，不构成购彩建议）：</div>'+
-      '<div class="card"><div class="reco-title">回退推荐（走势统计）</div>'+
-      '<div class="balls-row big">'+balls(t.recommend.red, t.recommend.blue)+'</div></div>';
-  }
-}
-
-async function loadExpert(){
-  const el = document.getElementById('expert-body');
-  el.innerHTML = '<div class="loading">正在尝试整合专家预测…</div>';
-  const combos = await fetchExperts();
-  renderExpert(combos);
-  EXPERT_DONE = true;
+function renderRandom(){
+  const el = document.getElementById('random-body');
+  const t = TREND;
+  if(!t){ el.innerHTML = '<div class="loading">预测走势数据未就绪</div>'; return; }
+  // 高概率候选池：红球取综合得分前12，蓝球取前6（取自模块3的 redRank/blueRank）
+  const redPool = t.redRank.slice(0,12);
+  const bluePool = t.blueRank.slice(0,6);
+  const redNums = shuffle(redPool).slice(0,6).map(x=>x.n).sort((a,b)=>a-b);
+  const blueNum = shuffle(bluePool).slice(0,1)[0].n;
+  el.innerHTML =
+    '<div class="card">'+
+      '<div class="reco-title">随机预测（基于「预测走势」高概率候选池）</div>'+
+      '<div class="balls-row big">'+balls(redNums, blueNum,false)+'</div>'+
+      '<div class="cnt">从红球得分前12、蓝球得分前6中随机抽 6红 + 1蓝</div>'+
+    '</div>'+
+    '<button id="random-again" class="btn-primary">再随机一组</button>'+
+    '<div class="warn">本模块为纯随机娱乐，从统计高概率号码中随机抽取，不保证中奖，不构成任何购彩建议。</div>';
+  document.getElementById('random-again').addEventListener('click', renderRandom);
 }
 
 /* ---------- Tab 切换 ---------- */
@@ -412,7 +373,7 @@ document.querySelectorAll('.tabs button').forEach(b=>{
     document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('tab-'+b.dataset.tab).classList.add('active');
-    if(b.dataset.tab==='expert' && !EXPERT_DONE) loadExpert();
+    if(b.dataset.tab==='random' && !RANDOM_DONE){ renderRandom(); RANDOM_DONE = true; }
   });
 });
 
