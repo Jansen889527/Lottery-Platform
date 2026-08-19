@@ -114,7 +114,6 @@ const PROXIES = [
 
 const PRIMES = new Set([2,3,5,7,11,13,17,19,23,29,31]);
 let TREND = null;
-let RANDOM_DONE = false;
 let HISTORY = [];
 
 function toast(msg){
@@ -147,21 +146,20 @@ function normalize(raw){
 }
 
 async function fetchSSQ(){
-  for(const prox of PROXIES){
-    try{
-      const ctrl = new AbortController();
-      const tid = setTimeout(()=>ctrl.abort(), 12000);
-      const r = await fetch(prox(CWL_URL), {signal:ctrl.signal, cache:'no-store'});
-      clearTimeout(tid);
-      if(!r.ok) continue;
-      const txt = await r.text();
-      const d = JSON.parse(txt);
-      if(d && d.result && d.result.length){
-        return {list: normalize(d.result), offline:false};
-      }
-    }catch(e){ console.warn('proxy failed', e); }
+  const jobs = PROXIES.map(prox=>{
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), 8000);
+    return fetch(prox(CWL_URL), {signal:ctrl.signal, cache:'no-store'})
+      .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('bad'); return r.text(); })
+      .then(txt=>{ const d=JSON.parse(txt); if(d&&d.result&&d.result.length) return normalize(d.result); throw new Error('empty'); })
+      .finally(()=>clearTimeout(tid));
+  });
+  try{
+    const list = await Promise.any(jobs);
+    return {list, offline:false};
+  }catch(e){
+    return {list: FALLBACK, offline:true};
   }
-  return {list: FALLBACK, offline:true};
 }
 
 /* ---------- 模块1：今日开奖 ---------- */
@@ -367,25 +365,37 @@ function renderRandom(){
 }
 
 /* ---------- Tab 切换 ---------- */
+function whenTrendReady(cb){
+  if(TREND) return cb();
+  const iv = setInterval(()=>{ if(TREND){ clearInterval(iv); cb(); } }, 150);
+  setTimeout(()=>clearInterval(iv), 30000);   // 30s 兜底，避免极端情况下一直转
+}
 document.querySelectorAll('.tabs button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('tab-'+b.dataset.tab).classList.add('active');
-    if(b.dataset.tab==='random' && !RANDOM_DONE){ renderRandom(); RANDOM_DONE = true; }
+    if(b.dataset.tab==='random'){
+      if(TREND) renderRandom();
+      else { document.getElementById('random-body').innerHTML='<div class="loading">数据计算中，请稍候…</div>'; whenTrendReady(renderRandom); }
+    }
   });
 });
 
 /* ---------- 初始化 ---------- */
-(async function init(){
-  const {list, offline} = await fetchSSQ();
-  if(offline) toast('代理取数失败，已使用内置离线快照（最近120期）');
+function renderAll(list){
   const newest = list[0];
   renderToday(newest);
   renderHistory(list);
   TREND = computeTrend(list);
   renderTrend(TREND);
+}
+(async function init(){
+  renderAll(FALLBACK);                 // 先用内置真实快照秒渲染，TREND 立即可用，模块3/4 不依赖网络
+  const {list, offline} = await fetchSSQ();
+  if(offline) toast('实时代理取数失败，当前显示内置离线快照（最近120期）');
+  else renderAll(list);                // 拿到实时数据再覆盖
 })();
 </script>
 <style>#toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;
