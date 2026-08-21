@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c62828">
+<title>双色球选号工具</title>
+<style>
+  :root{
+    --red:#e53935; --red-d:#b71c1c; --blue:#1565c0; --blue-d:#0d47a1;
+    --bg:#f4f5f7; --card:#fff; --ink:#222; --sub:#8a8f99; --line:#ececf0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;max-width:560px;margin:0 auto;
+    padding-bottom:env(safe-area-inset-bottom);}
+  header{background:linear-gradient(135deg,var(--red),var(--red-d));color:#fff;padding:16px 16px 14px;text-align:center}
+  header h1{margin:0;font-size:19px;font-weight:700;letter-spacing:1px}
+  .disclaimer{margin-top:8px;font-size:11px;opacity:.92;background:rgba(0,0,0,.18);border-radius:6px;padding:5px 8px}
+  .tabs{display:flex;position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
+  .tabs button{flex:1;border:0;background:none;padding:13px 2px;font-size:13.5px;color:var(--sub);font-weight:600;position:relative}
+  .tabs button.active{color:var(--red)}
+  .tabs button.active::after{content:"";position:absolute;left:22%;right:22%;bottom:0;height:3px;background:var(--red);border-radius:3px}
+  .tab-panel{display:none;padding:14px;animation:fade .2s}
+  .tab-panel.active{display:block}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .card{background:var(--card);border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.05);margin-bottom:14px}
+  .issue-head{text-align:center;font-size:15px;font-weight:700;margin-bottom:14px}
+  .balls-row{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;align-items:center}
+  .balls-row.big .ball{width:42px;height:42px;font-size:18px}
+  .ball{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:700;font-size:14px;box-shadow:inset 0 -2px 4px rgba(0,0,0,.25)}
+  .ball.red{background:radial-gradient(circle at 30% 28%,#ff7a75,var(--red-d))}
+  .ball.blue{background:radial-gradient(circle at 30% 28%,#5b9bf0,var(--blue-d))}
+  .ball.plus{width:auto;height:auto;background:none;color:var(--sub);box-shadow:none;font-size:18px}
+  .prize{display:flex;gap:12px;justify-content:center;margin-top:16px}
+  .prize>div{flex:1;text-align:center;background:#fafafa;border-radius:10px;padding:10px 6px}
+  .prize .lab{display:block;font-size:12px;color:var(--sub);margin-bottom:4px}
+  .search{display:flex;gap:8px;margin-bottom:12px}
+  .search input{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px}
+  .search button{border:0;background:var(--red);color:#fff;border-radius:9px;padding:0 16px;font-weight:600}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--sub);font-weight:600;background:#fafafa;position:sticky;top:0}
+  .balls-cell{text-align:left}
+  .balls-cell .ball{width:22px;height:22px;font-size:11px;margin:1px}
+  .cnt{text-align:center;color:var(--sub);font-size:12px;margin-top:10px}
+  .reco-title{text-align:center;font-size:14px;color:var(--sub);margin-bottom:10px}
+  .reco-title b{color:var(--red);font-size:15px}
+  .dims{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .dim{background:#fafafa;border-radius:10px;padding:10px}
+  .dim h4{margin:0 0 7px;font-size:12.5px;color:var(--ink);font-weight:700}
+  .dim .v{font-size:13px;color:var(--sub);line-height:1.6}
+  .bar{height:9px;background:#eee;border-radius:5px;overflow:hidden;margin:3px 0}
+  .bar>i{display:block;height:100%;background:var(--red)}
+  .bar.blue>i{background:var(--blue)}
+  .full{grid-column:1/3}
+  .vote-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12.5px}
+  .vote-row .num{width:24px;text-align:center;font-weight:700}
+  .vote-fill{flex:1;height:9px;background:#eee;border-radius:5px;overflow:hidden}
+  .vote-fill>i{display:block;height:100%;background:linear-gradient(90deg,#7cb3f7,var(--blue))}
+  .warn{background:#fff7e6;border:1px solid #ffe1a8;color:#8a5a00;border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:12px}
+  .err{color:var(--red);text-align:center;padding:20px}
+  .offline-tag{display:inline-block;background:#fff0f0;color:var(--red);font-size:11px;border-radius:5px;padding:2px 7px;margin-left:6px}
+  .loading{text-align:center;color:var(--sub);padding:30px}
+  .pill{display:inline-block;font-size:11px;color:var(--sub);background:#f0f0f3;border-radius:20px;padding:2px 9px;margin:2px}
+  .btn-primary{display:block;width:100%;border:0;background:var(--red);color:#fff;font-size:15px;font-weight:700;padding:13px;border-radius:12px;margin:14px 0;cursor:pointer}
+  .btn-primary:active{opacity:.85}
+</style>
+</head>
+<body>
+<header>
+  <h1>双色球选号工具</h1>
+  <div class="disclaimer">⚠️ 仅供娱乐参考 · 所有推荐均为历史数据统计 · 不构成任何购彩建议</div>
+</header>
+<div id="data-note" class="data-note"></div>
+
+<nav class="tabs">
+  <button data-tab="today" class="active">今日开奖</button>
+  <button data-tab="history">往期开奖</button>
+  <button data-tab="trend">预测走势</button>
+  <button data-tab="random">随机预测</button>
+</nav>
+
+<main>
+  <section id="tab-today" class="tab-panel active">
+    <div id="today-body"><div class="loading">加载中…</div></div>
+  </section>
+
+  <section id="tab-history" class="tab-panel">
+    <div id="history-body"><div class="loading">加载中…</div></div>
+  </section>
+
+  <section id="tab-trend" class="tab-panel">
+    <div id="trend-body"><div class="loading">加载中…</div></div>
+  </section>
+
+  <section id="tab-random" class="tab-panel">
+    <div id="random-body"><div class="loading">加载中…</div></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const FALLBACK = [{"code": "2026096", "date": "2026-08-20", "week": "四", "red": ["01", "04", "16", "22", "26", "31"], "blue": "04", "p1": {"count": 6, "money": 8348282}, "p2": {"count": 118, "money": 212814}}, {"code": "2026095", "date": "2026-08-18", "week": "二", "red": ["04", "06", "14", "21", "22", "33"], "blue": "16", "p1": {"count": 7, "money": 7475143}, "p2": {"count": 112, "money": 193370}}, {"code": "2026094", "date": "2026-08-16", "week": "日", "red": ["06", "13", "15", "17", "24", "25"], "blue": "01", "p1": {"count": 4, "money": 10000000}, "p2": {"count": 142, "money": 210861}}, {"code": "2026093", "date": "2026-08-13", "week": "四", "red": ["05", "08", "15", "20", "21", "24"], "blue": "09", "p1": {"count": 8, "money": 6581443}, "p2": {"count": 109, "money": 145086}}, {"code": "2026092", "date": "2026-08-11", "week": "二", "red": ["09", "11", "12", "25", "30", "33"], "blue": "11", "p1": {"count": 12, "money": 6466298}, "p2": {"count": 79, "money": 278411}}, {"code": "2026091", "date": "2026-08-09", "week": "日", "red": ["02", "13", "14", "16", "20", "24"], "blue": "05", "p1": {"count": 4, "money": 10000000}, "p2": {"count": 79, "money": 328709}}, {"code": "2026090", "date": "2026-08-06", "week": "四", "red": ["02", "04", "15", "23", "25", "27"], "blue": "03", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 86, "money": 332528}}, {"code": "2026089", "date": "2026-08-04", "week": "二", "red": ["05", "18", "23", "24", "27", "33"], "blue": "03", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 88, "money": 293109}}, {"code": "2026088", "date": "2026-08-02", "week": "日", "red": ["06", "07", "11", "18", "22", "33"], "blue": "05", "p1": {"count": 34, "money": 2941176}, "p2": {"count": 506, "money": 45037}}, {"code": "2026087", "date": "2026-07-30", "week": "四", "red": ["04", "06", "10", "18", "23", "31"], "blue": "11", "p1": {"count": 8, "money": 7296989}, "p2": {"count": 108, "money": 212684}}, {"code": "2026086", "date": "2026-07-28", "week": "二", "red": ["02", "05", "14", "25", "30", "32"], "blue": "05", "p1": {"count": 7, "money": 7501853}, "p2": {"count": 195, "money": 112262}}, {"code": "2026085", "date": "2026-07-26", "week": "日", "red": ["06", "09", "13", "17", "24", "28"], "blue": "15", "p1": {"count": 17, "money": 5882352}, "p2": {"count": 326, "money": 71094}}, {"code": "2026084", "date": "2026-07-23", "week": "四", "red": ["01", "05", "06", "10", "12", "16"], "blue": "05", "p1": {"count": 10, "money": 6809591}, "p2": {"count": 107, "money": 211400}}, {"code": "2026083", "date": "2026-07-21", "week": "二", "red": ["07", "14", "15", "23", "28", "33"], "blue": "03", "p1": {"count": 0, "money": 0}, "p2": {"count": 111, "money": 214159}}, {"code": "2026082", "date": "2026-07-19", "week": "日", "red": ["05", "07", "10", "14", "21", "28"], "blue": "04", "p1": {"count": 10, "money": 7104774}, "p2": {"count": 215, "money": 122370}}, {"code": "2026081", "date": "2026-07-16", "week": "四", "red": ["06", "10", "12", "15", "24", "27"], "blue": "12", "p1": {"count": 5, "money": 8082773}, "p2": {"count": 137, "money": 140637}}, {"code": "2026080", "date": "2026-07-14", "week": "二", "red": ["04", "05", "11", "19", "27", "32"], "blue": "01", "p1": {"count": 8, "money": 7579965}, "p2": {"count": 132, "money": 195451}}, {"code": "2026079", "date": "2026-07-12", "week": "日", "red": ["01", "11", "17", "22", "24", "29"], "blue": "04", "p1": {"count": 1, "money": 10000000}, "p2": {"count": 109, "money": 280814}}, {"code": "2026078", "date": "2026-07-09", "week": "四", "red": ["07", "11", "14", "16", "27", "28"], "blue": "06", "p1": {"count": 15, "money": 5983174}, "p2": {"count": 176, "money": 104741}}, {"code": "2026077", "date": "2026-07-07", "week": "二", "red": ["01", "04", "05", "14", "18", "25"], "blue": "04", "p1": {"count": 6, "money": 8516882}, "p2": {"count": 114, "money": 231373}}, {"code": "2026076", "date": "2026-07-05", "week": "日", "red": ["01", "03", "19", "20", "24", "25"], "blue": "07", "p1": {"count": 6, "money": 7355406}, "p2": {"count": 150, "money": 117770}}, {"code": "2026075", "date": "2026-07-02", "week": "四", "red": ["08", "12", "18", "21", "24", "30"], "blue": "01", "p1": {"count": 5, "money": 7840223}, "p2": {"count": 102, "money": 556906}}, {"code": "2026074", "date": "2026-06-30", "week": "二", "red": ["02", "23", "24", "26", "28", "32"], "blue": "04", "p1": {"count": 4, "money": 8277839}, "p2": {"count": 98, "money": 535157}}, {"code": "2026073", "date": "2026-06-28", "week": "日", "red": ["09", "10", "13", "16", "19", "21"], "blue": "08", "p1": {"count": 10, "money": 6111492}, "p2": {"count": 136, "money": 326909}}, {"code": "2026072", "date": "2026-06-25", "week": "四", "red": ["07", "08", "12", "15", "17", "21"], "blue": "01", "p1": {"count": 4, "money": 8287457}, "p2": {"count": 143, "money": 367827}}, {"code": "2026071", "date": "2026-06-23", "week": "二", "red": ["03", "08", "19", "25", "31", "33"], "blue": "05", "p1": {"count": 8, "money": 5867768}, "p2": {"count": 121, "money": 229492}}, {"code": "2026070", "date": "2026-06-21", "week": "日", "red": ["03", "06", "08", "14", "26", "27"], "blue": "08", "p1": {"count": 11, "money": 5811271}, "p2": {"count": 216, "money": 165258}}, {"code": "2026069", "date": "2026-06-18", "week": "四", "red": ["12", "14", "16", "17", "18", "32"], "blue": "08", "p1": {"count": 22, "money": 4545454}, "p2": {"count": 955, "money": 19746}}, {"code": "2026068", "date": "2026-06-16", "week": "二", "red": ["03", "05", "16", "18", "29", "32"], "blue": "04", "p1": {"count": 14, "money": 5649404}, "p2": {"count": 123, "money": 295664}}, {"code": "2026067", "date": "2026-06-14", "week": "日", "red": ["04", "19", "27", "29", "30", "32"], "blue": "13", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 89, "money": 747481}}, {"code": "2026066", "date": "2026-06-11", "week": "四", "red": ["05", "11", "21", "23", "24", "29"], "blue": "16", "p1": {"count": 7, "money": 6728458}, "p2": {"count": 126, "money": 384101}}, {"code": "2026065", "date": "2026-06-09", "week": "二", "red": ["07", "08", "16", "24", "30", "32"], "blue": "02", "p1": {"count": 7, "money": 6944530}, "p2": {"count": 190, "money": 286562}}, {"code": "2026064", "date": "2026-06-07", "week": "日", "red": ["01", "09", "15", "18", "29", "33"], "blue": "15", "p1": {"count": 15, "money": 6021460}, "p2": {"count": 168, "money": 364807}}, {"code": "2026063", "date": "2026-06-04", "week": "四", "red": ["02", "08", "25", "28", "30", "31"], "blue": "02", "p1": {"count": 20, "money": 5000000}, "p2": {"count": 117, "money": 234108}}, {"code": "2026062", "date": "2026-06-02", "week": "二", "red": ["02", "04", "07", "14", "28", "29"], "blue": "09", "p1": {"count": 30, "money": 3333333}, "p2": {"count": 139, "money": 6000}}, {"code": "2026061", "date": "2026-05-31", "week": "日", "red": ["01", "04", "05", "15", "23", "28"], "blue": "07", "p1": {"count": 8, "money": 6130798}, "p2": {"count": 135, "money": 268041}}, {"code": "2026060", "date": "2026-05-28", "week": "四", "red": ["07", "09", "10", "16", "22", "27"], "blue": "11", "p1": {"count": 18, "money": 5502014}, "p2": {"count": 226, "money": 159933}}, {"code": "2026059", "date": "2026-05-26", "week": "二", "red": ["08", "16", "26", "28", "29", "30"], "blue": "15", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 138, "money": 441123}}, {"code": "2026058", "date": "2026-05-24", "week": "日", "red": ["01", "04", "07", "21", "29", "30"], "blue": "01", "p1": {"count": 9, "money": 6504451}, "p2": {"count": 154, "money": 351689}}, {"code": "2026057", "date": "2026-05-21", "week": "四", "red": ["01", "10", "22", "24", "28", "30"], "blue": "07", "p1": {"count": 6, "money": 6920687}, "p2": {"count": 109, "money": 422903}}, {"code": "2026056", "date": "2026-05-19", "week": "二", "red": ["10", "19", "21", "22", "31", "33"], "blue": "05", "p1": {"count": 2, "money": 10000000}, "p2": {"count": 86, "money": 589039}}, {"code": "2026055", "date": "2026-05-17", "week": "日", "red": ["04", "11", "24", "25", "32", "33"], "blue": "13", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 155, "money": 392861}}, {"code": "2026054", "date": "2026-05-14", "week": "四", "red": ["13", "20", "25", "29", "30", "33"], "blue": "02", "p1": {"count": 5, "money": 8421032}, "p2": {"count": 67, "money": 1021203}}, {"code": "2026053", "date": "2026-05-12", "week": "二", "red": ["01", "02", "03", "08", "13", "14"], "blue": "02", "p1": {"count": 6, "money": 7002350}, "p2": {"count": 136, "money": 353355}}, {"code": "2026052", "date": "2026-05-10", "week": "日", "red": ["01", "03", "11", "22", "26", "31"], "blue": "11", "p1": {"count": 24, "money": 4166666}, "p2": {"count": 257, "money": 103058}}, {"code": "2026051", "date": "2026-05-07", "week": "四", "red": ["09", "14", "15", "16", "29", "30"], "blue": "10", "p1": {"count": 14, "money": 5728242}, "p2": {"count": 189, "money": 215775}}, {"code": "2026050", "date": "2026-05-05", "week": "二", "red": ["06", "09", "25", "27", "28", "30"], "blue": "03", "p1": {"count": 4, "money": 7220345}, "p2": {"count": 87, "money": 408339}}, {"code": "2026049", "date": "2026-05-03", "week": "日", "red": ["03", "04", "14", "15", "18", "20"], "blue": "02", "p1": {"count": 6, "money": 6941614}, "p2": {"count": 112, "money": 416060}}, {"code": "2026048", "date": "2026-04-30", "week": "四", "red": ["09", "15", "18", "24", "28", "33"], "blue": "01", "p1": {"count": 0, "money": 0}, "p2": {"count": 128, "money": 473459}}, {"code": "2026047", "date": "2026-04-28", "week": "二", "red": ["07", "16", "21", "24", "27", "30"], "blue": "07", "p1": {"count": 6, "money": 6564632}, "p2": {"count": 269, "money": 139595}}, {"code": "2026046", "date": "2026-04-26", "week": "日", "red": ["02", "09", "10", "24", "31", "33"], "blue": "16", "p1": {"count": 5, "money": 8506512}, "p2": {"count": 114, "money": 614035}}, {"code": "2026045", "date": "2026-04-23", "week": "四", "red": ["04", "11", "15", "17", "24", "30"], "blue": "15", "p1": {"count": 12, "money": 6214166}, "p2": {"count": 131, "money": 444885}}, {"code": "2026044", "date": "2026-04-21", "week": "二", "red": ["02", "14", "17", "18", "22", "30"], "blue": "01", "p1": {"count": 6, "money": 7298375}, "p2": {"count": 114, "money": 483868}}, {"code": "2026043", "date": "2026-04-19", "week": "日", "red": ["06", "09", "14", "16", "25", "32"], "blue": "16", "p1": {"count": 16, "money": 5364612}, "p2": {"count": 262, "money": 89065}}, {"code": "2026042", "date": "2026-04-16", "week": "四", "red": ["02", "07", "12", "19", "24", "31"], "blue": "10", "p1": {"count": 14, "money": 5706863}, "p2": {"count": 350, "money": 113098}}, {"code": "2026041", "date": "2026-04-14", "week": "二", "red": ["02", "08", "10", "17", "19", "24"], "blue": "13", "p1": {"count": 14, "money": 5761961}, "p2": {"count": 171, "money": 249531}}, {"code": "2026040", "date": "2026-04-12", "week": "日", "red": ["03", "04", "14", "22", "23", "33"], "blue": "04", "p1": {"count": 13, "money": 6070223}, "p2": {"count": 222, "money": 250682}}, {"code": "2026039", "date": "2026-04-09", "week": "四", "red": ["08", "17", "18", "21", "25", "30"], "blue": "05", "p1": {"count": 1, "money": 10000000}, "p2": {"count": 173, "money": 257555}}, {"code": "2026038", "date": "2026-04-07", "week": "二", "red": ["01", "02", "13", "23", "25", "27"], "blue": "05", "p1": {"count": 8, "money": 6202609}, "p2": {"count": 139, "money": 276859}}, {"code": "2026037", "date": "2026-04-05", "week": "日", "red": ["11", "22", "27", "29", "31", "33"], "blue": "12", "p1": {"count": 72, "money": 1388888}, "p2": {"count": 171, "money": 235251}}, {"code": "2026036", "date": "2026-04-02", "week": "四", "red": ["06", "10", "12", "15", "22", "28"], "blue": "08", "p1": {"count": 9, "money": 5684766}, "p2": {"count": 177, "money": 139274}}, {"code": "2026035", "date": "2026-03-31", "week": "二", "red": ["02", "06", "12", "24", "25", "32"], "blue": "02", "p1": {"count": 6, "money": 7153892}, "p2": {"count": 268, "money": 192885}}, {"code": "2026034", "date": "2026-03-29", "week": "日", "red": ["01", "03", "07", "13", "22", "23"], "blue": "07", "p1": {"count": 13, "money": 5653247}, "p2": {"count": 183, "money": 185622}}, {"code": "2026033", "date": "2026-03-26", "week": "四", "red": ["03", "06", "13", "21", "28", "29"], "blue": "06", "p1": {"count": 15, "money": 5619305}, "p2": {"count": 161, "money": 230797}}, {"code": "2026032", "date": "2026-03-24", "week": "二", "red": ["01", "03", "11", "18", "31", "33"], "blue": "02", "p1": {"count": 6, "money": 7330318}, "p2": {"count": 120, "money": 466063}}, {"code": "2026031", "date": "2026-03-22", "week": "日", "red": ["03", "10", "12", "13", "18", "33"], "blue": "08", "p1": {"count": 10, "money": 5408805}, "p2": {"count": 99, "money": 165174}}, {"code": "2026030", "date": "2026-03-19", "week": "四", "red": ["10", "11", "14", "19", "22", "24"], "blue": "04", "p1": {"count": 5, "money": 7573704}, "p2": {"count": 86, "money": 598535}}, {"code": "2026029", "date": "2026-03-17", "week": "二", "red": ["06", "19", "22", "23", "28", "31"], "blue": "05", "p1": {"count": 4, "money": 7239119}, "p2": {"count": 106, "money": 337980}}, {"code": "2026028", "date": "2026-03-15", "week": "日", "red": ["02", "06", "09", "17", "25", "28"], "blue": "15", "p1": {"count": 5, "money": 7757204}, "p2": {"count": 251, "money": 219697}}, {"code": "2026027", "date": "2026-03-12", "week": "四", "red": ["02", "13", "17", "18", "25", "26"], "blue": "13", "p1": {"count": 23, "money": 4347826}, "p2": {"count": 131, "money": 301031}}, {"code": "2026026", "date": "2026-03-10", "week": "二", "red": ["02", "09", "16", "22", "25", "29"], "blue": "03", "p1": {"count": 7, "money": 6119470}, "p2": {"count": 168, "money": 186578}}, {"code": "2026025", "date": "2026-03-08", "week": "日", "red": ["02", "03", "15", "20", "23", "24"], "blue": "10", "p1": {"count": 7, "money": 6639739}, "p2": {"count": 184, "money": 249525}}, {"code": "2026024", "date": "2026-03-05", "week": "四", "red": ["01", "02", "13", "21", "23", "29"], "blue": "14", "p1": {"count": 2, "money": 10000000}, "p2": {"count": 79, "money": 843179}}, {"code": "2026023", "date": "2026-03-03", "week": "二", "red": ["01", "03", "08", "10", "23", "29"], "blue": "06", "p1": {"count": 12, "money": 5612828}, "p2": {"count": 133, "money": 221171}}, {"code": "2026022", "date": "2026-03-01", "week": "日", "red": ["15", "18", "23", "25", "28", "32"], "blue": "11", "p1": {"count": 6, "money": 6366973}, "p2": {"count": 152, "money": 215837}}, {"code": "2026021", "date": "2026-02-26", "week": "四", "red": ["03", "13", "25", "26", "30", "31"], "blue": "04", "p1": {"count": 6, "money": 7076614}, "p2": {"count": 113, "money": 441050}}, {"code": "2026020", "date": "2026-02-24", "week": "二", "red": ["01", "13", "14", "21", "24", "30"], "blue": "02", "p1": {"count": 2, "money": 10000000}, "p2": {"count": 64, "money": 994080}}, {"code": "2026019", "date": "2026-02-12", "week": "四", "red": ["07", "08", "16", "17", "18", "30"], "blue": "01", "p1": {"count": 7, "money": 6673652}, "p2": {"count": 220, "money": 213010}}, {"code": "2026018", "date": "2026-02-10", "week": "二", "red": ["11", "15", "17", "22", "25", "30"], "blue": "07", "p1": {"count": 6, "money": 5577851}, "p2": {"count": 82, "money": 169127}}, {"code": "2026017", "date": "2026-02-08", "week": "日", "red": ["01", "03", "05", "18", "29", "32"], "blue": "04", "p1": {"count": 6, "money": 6934706}, "p2": {"count": 130, "money": 357176}}, {"code": "2026016", "date": "2026-02-05", "week": "四", "red": ["04", "05", "09", "10", "27", "30"], "blue": "13", "p1": {"count": 8, "money": 5687274}, "p2": {"count": 247, "money": 89039}}, {"code": "2026015", "date": "2026-02-03", "week": "二", "red": ["07", "10", "13", "22", "27", "31"], "blue": "12", "p1": {"count": 5, "money": 7580431}, "p2": {"count": 148, "money": 348706}}, {"code": "2026014", "date": "2026-02-01", "week": "日", "red": ["07", "13", "19", "22", "26", "32"], "blue": "01", "p1": {"count": 17, "money": 5882352}, "p2": {"count": 201, "money": 299554}}, {"code": "2026013", "date": "2026-01-29", "week": "四", "red": ["04", "09", "12", "13", "16", "20"], "blue": "01", "p1": {"count": 5, "money": 9433203}, "p2": {"count": 103, "money": 269005}}, {"code": "2026012", "date": "2026-01-27", "week": "二", "red": ["03", "05", "07", "16", "20", "24"], "blue": "08", "p1": {"count": 8, "money": 6799445}, "p2": {"count": 65, "money": 276837}}, {"code": "2026011", "date": "2026-01-25", "week": "日", "red": ["02", "03", "04", "20", "31", "32"], "blue": "04", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 77, "money": 388911}}, {"code": "2026010", "date": "2026-01-22", "week": "四", "red": ["04", "09", "10", "15", "19", "26"], "blue": "12", "p1": {"count": 19, "money": 5702151}, "p2": {"count": 223, "money": 74780}}, {"code": "2026009", "date": "2026-01-20", "week": "二", "red": ["03", "06", "13", "19", "23", "25"], "blue": "10", "p1": {"count": 9, "money": 6911676}, "p2": {"count": 276, "money": 77921}}, {"code": "2026008", "date": "2026-01-18", "week": "日", "red": ["06", "09", "16", "27", "31", "33"], "blue": "10", "p1": {"count": 6, "money": 8725252}, "p2": {"count": 107, "money": 261115}}, {"code": "2026007", "date": "2026-01-15", "week": "四", "red": ["09", "13", "19", "27", "29", "30"], "blue": "01", "p1": {"count": 7, "money": 7349262}, "p2": {"count": 149, "money": 137960}}, {"code": "2026006", "date": "2026-01-13", "week": "二", "red": ["02", "06", "22", "23", "24", "28"], "blue": "15", "p1": {"count": 2, "money": 10000000}, "p2": {"count": 147, "money": 178496}}, {"code": "2026005", "date": "2026-01-11", "week": "日", "red": ["01", "20", "22", "27", "30", "33"], "blue": "10", "p1": {"count": 4, "money": 10000000}, "p2": {"count": 66, "money": 400264}}, {"code": "2026004", "date": "2026-01-08", "week": "四", "red": ["03", "07", "08", "09", "18", "32"], "blue": "10", "p1": {"count": 4, "money": 8704419}, "p2": {"count": 128, "money": 144703}}, {"code": "2026003", "date": "2026-01-06", "week": "二", "red": ["05", "06", "09", "21", "28", "30"], "blue": "16", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 130, "money": 190247}}, {"code": "2026002", "date": "2026-01-04", "week": "日", "red": ["01", "05", "07", "18", "30", "32"], "blue": "02", "p1": {"count": 12, "money": 6797096}, "p2": {"count": 119, "money": 226524}}, {"code": "2026001", "date": "2026-01-01", "week": "四", "red": ["02", "06", "11", "12", "13", "33"], "blue": "15", "p1": {"count": 4, "money": 9520395}, "p2": {"count": 154, "money": 146766}}, {"code": "2025151", "date": "2025-12-30", "week": "二", "red": ["08", "09", "14", "22", "28", "30"], "blue": "04", "p1": {"count": 6, "money": 7732391}, "p2": {"count": 125, "money": 163943}}, {"code": "2025150", "date": "2025-12-28", "week": "日", "red": ["06", "13", "17", "19", "24", "31"], "blue": "08", "p1": {"count": 7, "money": 7756937}, "p2": {"count": 208, "money": 115976}}, {"code": "2025149", "date": "2025-12-25", "week": "四", "red": ["01", "02", "04", "06", "22", "30"], "blue": "10", "p1": {"count": 13, "money": 6418616}, "p2": {"count": 130, "money": 177327}}, {"code": "2025148", "date": "2025-12-23", "week": "二", "red": ["03", "04", "09", "10", "15", "22"], "blue": "16", "p1": {"count": 8, "money": 7480485}, "p2": {"count": 139, "money": 178452}}, {"code": "2025147", "date": "2025-12-21", "week": "日", "red": ["01", "03", "05", "08", "22", "33"], "blue": "08", "p1": {"count": 21, "money": 5719540}, "p2": {"count": 118, "money": 160067}}, {"code": "2025146", "date": "2025-12-18", "week": "四", "red": ["05", "07", "12", "24", "26", "28"], "blue": "02", "p1": {"count": 9, "money": 7076977}, "p2": {"count": 192, "money": 121697}}, {"code": "2025145", "date": "2025-12-16", "week": "二", "red": ["11", "12", "15", "18", "25", "32"], "blue": "14", "p1": {"count": 15, "money": 6220919}, "p2": {"count": 89, "money": 257216}}, {"code": "2025144", "date": "2025-12-14", "week": "日", "red": ["01", "08", "15", "20", "26", "33"], "blue": "13", "p1": {"count": 18, "money": 6211544}, "p2": {"count": 180, "money": 151443}}, {"code": "2025143", "date": "2025-12-11", "week": "四", "red": ["02", "09", "12", "13", "15", "24"], "blue": "03", "p1": {"count": 7, "money": 8038443}, "p2": {"count": 81, "money": 328226}}, {"code": "2025142", "date": "2025-12-09", "week": "二", "red": ["02", "13", "15", "23", "27", "31"], "blue": "16", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 79, "money": 317297}}, {"code": "2025141", "date": "2025-12-07", "week": "日", "red": ["02", "04", "05", "10", "12", "13"], "blue": "06", "p1": {"count": 10, "money": 7082448}, "p2": {"count": 112, "money": 232416}}, {"code": "2025140", "date": "2025-12-04", "week": "四", "red": ["01", "03", "04", "12", "18", "24"], "blue": "05", "p1": {"count": 4, "money": 9980899}, "p2": {"count": 126, "money": 197654}}, {"code": "2025139", "date": "2025-12-02", "week": "二", "red": ["02", "05", "17", "22", "30", "33"], "blue": "06", "p1": {"count": 3, "money": 10000000}, "p2": {"count": 142, "money": 154433}}, {"code": "2025138", "date": "2025-11-30", "week": "日", "red": ["10", "13", "14", "23", "24", "27"], "blue": "15", "p1": {"count": 2, "money": 10000000}, "p2": {"count": 78, "money": 326226}}, {"code": "2025137", "date": "2025-11-27", "week": "四", "red": ["02", "08", "11", "23", "27", "29"], "blue": "05", "p1": {"count": 12, "money": 6227322}, "p2": {"count": 114, "money": 161489}}, {"code": "2025136", "date": "2025-11-25", "week": "二", "red": ["08", "10", "14", "23", "28", "32"], "blue": "12", "p1": {"count": 43, "money": 5467124}, "p2": {"count": 101, "money": 248593}}, {"code": "2025135", "date": "2025-11-23", "week": "日", "red": ["01", "02", "05", "09", "25", "32"], "blue": "10", "p1": {"count": 7, "money": 7811499}, "p2": {"count": 104, "money": 236544}}, {"code": "2025134", "date": "2025-11-20", "week": "四", "red": ["03", "05", "09", "13", "26", "29"], "blue": "12", "p1": {"count": 12, "money": 6386866}, "p2": {"count": 123, "money": 169130}}, {"code": "2025133", "date": "2025-11-18", "week": "二", "red": ["05", "14", "17", "19", "20", "33"], "blue": "07", "p1": {"count": 21, "money": 5571098}, "p2": {"count": 148, "money": 101292}}, {"code": "2025132", "date": "2025-11-16", "week": "日", "red": ["04", "08", "10", "21", "23", "32"], "blue": "11", "p1": {"count": 8, "money": 7322334}, "p2": {"count": 135, "money": 172024}}, {"code": "2025131", "date": "2025-11-13", "week": "四", "red": ["03", "13", "14", "18", "24", "31"], "blue": "03", "p1": {"count": 8, "money": 7835944}, "p2": {"count": 98, "money": 289382}}, {"code": "2025130", "date": "2025-11-11", "week": "二", "red": ["01", "05", "08", "14", "19", "23"], "blue": "06", "p1": {"count": 14, "money": 5638811}, "p2": {"count": 183, "money": 61088}}, {"code": "2025129", "date": "2025-11-09", "week": "日", "red": ["03", "04", "07", "13", "20", "30"], "blue": "03", "p1": {"count": 16, "money": 6390891}, "p2": {"count": 194, "money": 143390}}, {"code": "2025128", "date": "2025-11-06", "week": "四", "red": ["02", "10", "18", "19", "24", "27"], "blue": "01", "p1": {"count": 7, "money": 6365206}, "p2": {"count": 142, "money": 84123}}];
+
+const CWL_URL = 'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=120';
+const PROXIES = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + u
+];
+
+const PRIMES = new Set([2,3,5,7,11,13,17,19,23,29,31]);
+let TREND = null;
+let HISTORY = [];
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  setTimeout(()=>t.style.opacity='0',2200);
+}
+function money(m){ return m ? '¥'+Number(m).toLocaleString() : '-'; }
+function ball(n, type){ return '<span class="ball '+type+'">'+String(n).padStart(2,'0')+'</span>'; }
+function balls(reds, blue, sep){
+  const plus = sep === false ? '' : '<span class="ball plus">+</span>';
+  return reds.map(n=>ball(n,'red')).join('') + plus + ball(blue,'blue');
+}
+
+// 把中彩网原始接口数据规范化为标准结构
+function normalize(raw){
+  return raw.map(r=>{
+    const pg = r.prizegrades || [];
+    let p1={count:0,money:0}, p2={count:0,money:0};
+    pg.forEach(g=>{
+      const t=+g.type, c=parseInt(g.typenum)||0, m=parseInt(g.typemoney)||0;
+      if(t===1) p1={count:c,money:m};
+      else if(t===2) p2={count:c,money:m};
+    });
+    const date = String(r.date||'').split('(')[0];
+    const week = String(r.date||'').split('(').pop().replace(')','');
+    const red = String(r.red||'').split(',').map(s=>s.trim()).filter(Boolean);
+    return {code:String(r.code), date, week, red, blue:String(r.blue), p1, p2};
+  });
+}
+
+async function fetchSSQ(){
+  const jobs = PROXIES.map(prox=>{
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), 8000);
+    return fetch(prox(CWL_URL), {signal:ctrl.signal, cache:'no-store'})
+      .then(r=>{ clearTimeout(tid); if(!r.ok) throw new Error('bad'); return r.text(); })
+      .then(txt=>{ const d=JSON.parse(txt); if(d&&d.result&&d.result.length) return normalize(d.result); throw new Error('empty'); })
+      .finally(()=>clearTimeout(tid));
+  });
+  try{
+    const list = await Promise.any(jobs);
+    return {list, offline:false};
+  }catch(e){
+    return {list: FALLBACK, offline:true};
+  }
+}
+
+/* ---------- 模块1：今日开奖 ---------- */
+function renderToday(d){
+  const el = document.getElementById('today-body');
+  if(!d){ el.innerHTML='<p class="err">数据加载失败</p>'; return; }
+  el.innerHTML =
+    '<div class="card">'+
+      '<div class="issue-head">第 '+d.code+' 期 · '+d.date+(d.week?'（周'+d.week+'）':'')+'</div>'+
+      '<div class="balls-row big">'+balls(d.red,d.blue,false)+'</div>'+
+      '<div class="prize">'+
+        '<div><span class="lab">一等奖</span>'+d.p1.count+' 注<br>'+money(d.p1.money)+'</div>'+
+        '<div><span class="lab">二等奖</span>'+d.p2.count+' 注<br>'+money(d.p2.money)+'</div>'+
+      '</div>'+
+    '</div>';
+}
+
+/* ---------- 模块2：往期开奖 ---------- */
+function renderHistory(list, filter){
+  HISTORY = list;
+  const el = document.getElementById('history-body');
+  const f = (filter||'').trim();
+  const shown = list.filter(x=>!f || x.code.indexOf(f)>=0);
+  const rows = shown.map(x=>
+    '<tr><td>'+x.code+'</td><td>'+x.date+'</td>'+
+    '<td class="balls-cell">'+balls(x.red,x.blue)+'</td>'+
+    '<td>'+x.p1.count+'注<br>'+money(x.p1.money)+'</td>'+
+    '<td>'+x.p2.count+'注<br>'+money(x.p2.money)+'</td></tr>'
+  ).join('');
+  el.innerHTML =
+    '<div class="card">'+
+      '<div class="search"><input id="hist-search" placeholder="输入期号筛选，如 2026" value="'+f+'">'+
+      '<button onclick="onSearch()">查询</button></div>'+
+      '<div class="table-wrap"><table><thead><tr><th>期号</th><th>日期</th><th>开奖号码</th>'+
+      '<th>一等奖</th><th>二等奖</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="cnt">共 '+list.length+' 期'+(f?'，筛选 '+shown.length+' 期':'')+'</div>'+
+    '</div>';
+}
+function onSearch(){
+  const v = document.getElementById('hist-search').value;
+  renderHistory(HISTORY, v);
+}
+
+/* ---------- 模块3：预测走势（统计 + 推荐） ---------- */
+function computeTrend(list){
+  const arr = list.slice().reverse(); // 旧→新
+  const N = arr.length;
+  const redFreq = new Array(34).fill(0), blueFreq = new Array(17).fill(0);
+  const redMiss  = new Array(34).fill(0), blueMiss  = new Array(17).fill(0);
+  const redRecent = new Array(34).fill(0), blueRecent = new Array(17).fill(0);
+  const recent = arr.slice(-10);
+  recent.forEach(d=>{
+    d.red.map(Number).forEach(n=>redRecent[n]++);
+    blueRecent[Number(d.blue)]++;
+  });
+  for(let i=0;i<N;i++){
+    const reds = arr[i].red.map(Number);
+    const blue = Number(arr[i].blue);
+    reds.forEach(n=>redFreq[n]++); blueFreq[blue]++;
+    for(let n=1;n<=33;n++) redMiss[n]++;
+    reds.forEach(n=>redMiss[n]=0);
+    for(let n=1;n<=16;n++) blueMiss[n]++;
+    blueMiss[blue]=0;
+  }
+  const redScore = n => redFreq[n]*1.0 + Math.min(redMiss[n],20)*0.6 + redRecent[n]*2.2;
+  const blueScore= n => blueFreq[n]*1.0 + Math.min(blueMiss[n],20)*0.6 + blueRecent[n]*2.2;
+  const redRank=[], blueRank=[];
+  for(let n=1;n<=33;n++) redRank.push({n,score:redScore(n),freq:redFreq[n],miss:redMiss[n]});
+  for(let n=1;n<=16;n++) blueRank.push({n,score:blueScore(n),freq:blueFreq[n],miss:blueMiss[n]});
+  redRank.sort((a,b)=>b.score-a.score);
+  blueRank.sort((a,b)=>b.score-a.score);
+  const recommend = {
+    red: redRank.slice(0,6).map(x=>x.n).sort((a,b)=>a-b),
+    blue: blueRank[0].n
+  };
+  return {recommend, redRank, blueRank, count:N, dims:computeDimensions(arr)};
+}
+
+function computeDimensions(arr){
+  const N = arr.length;
+  const sizeR=[0,0], parR=[0,0], zhR=[0,0], d012=[0,0,0], zone=[0,0,0];
+  const tail=new Array(10).fill(0);
+  const sumArr=[], acArr=[], spanArr=[], tailSum=[];
+  let conn=0, rep=0;
+  const week={};
+  for(let i=0;i<N;i++){
+    const reds = arr[i].red.map(Number).sort((a,b)=>a-b);
+    const blue = Number(arr[i].blue);
+    let small=0,big=0,odd=0,even=0,p=0,c=0;
+    reds.forEach(n=>{
+      if(n<=16)small++; else big++;
+      if(n%2)odd++; else even++;
+      if(PRIMES.has(n))p++; else c++;
+      d012[n%3]++; tail[n%10]++;
+      if(n<=11)zone[0]++; else if(n<=22)zone[1]++; else zone[2]++;
+    });
+    sizeR[0]+=small; sizeR[1]+=big; parR[0]+=odd; parR[1]+=even; zhR[0]+=p; zhR[1]+=c;
+    const sum = reds.reduce((a,b)=>a+b,0); sumArr.push(sum);
+    const diffs=new Set();
+    for(let a=0;a<6;a++)for(let b=a+1;b<6;b++)diffs.add(Math.abs(reds[a]-reds[b]));
+    acArr.push(diffs.size-5);
+    spanArr.push(reds[5]-reds[0]);
+    tailSum.push(sum%10);
+    let cn=0; for(let k=1;k<6;k++) if(reds[k]-reds[k-1]===1) cn++;
+    if(cn>0) conn++;
+    if(i>0){ const prev=new Set(arr[i-1].red.map(Number)); let rp=0; reds.forEach(n=>{if(prev.has(n))rp++;}); if(rp>0) rep++; }
+    const w=arr[i].week||''; week[w]=(week[w]||0)+1;
+  }
+  const avg=a=>a.length? a.reduce((x,y)=>x+y,0)/a.length:0;
+  return {
+    sizeAvg:[ (sizeR[0]/N).toFixed(2),(sizeR[1]/N).toFixed(2) ],
+    parAvg:[ (parR[0]/N).toFixed(2),(parR[1]/N).toFixed(2) ],
+    zhAvg:[ (zhR[0]/N).toFixed(2),(zhR[1]/N).toFixed(2) ],
+    d012, zone,
+    avgSum: avg(sumArr).toFixed(1), lastSum: sumArr[sumArr.length-1],
+    avgAC: avg(acArr).toFixed(2), lastAC: acArr[acArr.length-1],
+    avgSpan: avg(spanArr).toFixed(1), lastSpan: spanArr[spanArr.length-1],
+    tail,
+    connRate:(conn/N*100).toFixed(0), repeatRate:(rep/N*100).toFixed(0),
+    week
+  };
+}
+
+function renderTrend(t){
+  const el = document.getElementById('trend-body');
+  const d = t.dims;
+  const maxRed = Math.max(...t.redRank.slice(0,10).map(x=>x.score));
+  const maxBlue = Math.max(...t.blueRank.slice(0,5).map(x=>x.score));
+  const redBars = t.redRank.slice(0,10).map(x=>
+    '<div class="vote-row"><span class="num">'+String(x.n).padStart(2,'0')+'</span>'+
+    '<span class="vote-fill"><i style="width:'+(x.score/maxRed*100).toFixed(0)+'%"></i></span>'+
+    '<span style="width:74px;text-align:right;color:#8a8f99">频'+x.freq+'/漏'+x.miss+'</span></div>').join('');
+  const blueBars = t.blueRank.slice(0,5).map(x=>
+    '<div class="vote-row"><span class="num">'+String(x.n).padStart(2,'0')+'</span>'+
+    '<span class="vote-fill"><i style="width:'+(x.score/maxBlue*100).toFixed(0)+'%"></i></span>'+
+    '<span style="width:74px;text-align:right;color:#8a8f99">频'+x.freq+'/漏'+x.miss+'</span></div>').join('');
+
+  const redMissTop = t.redRank.slice().sort((a,b)=>b.miss-a.miss).slice(0,8)
+    .map(x=>'<span class="pill">'+String(x.n).padStart(2,'0')+' 漏'+x.miss+'</span>').join('');
+  const blueMissTop = t.blueRank.slice().sort((a,b)=>b.miss-a.miss).slice(0,5)
+    .map(x=>'<span class="pill">'+String(x.n).padStart(2,'0')+' 漏'+x.miss+'</span>').join('');
+
+  const tailBars = d.tail.map((v,i)=>
+    '<div class="vote-row"><span class="num">'+i+'</span>'+
+    '<span class="vote-fill"><i style="width:'+(v/Math.max(...d.tail)*100).toFixed(0)+'%"></i></span>'+
+    '<span style="width:42px;text-align:right;color:#8a8f99">'+v+'</span></div>').join('');
+
+  const weekKeys = Object.keys(d.week);
+  const weekHtml = weekKeys.length ? weekKeys.map(w=>'<span class="pill">周'+w+'：'+d.week[w]+'期</span>').join('') : '<span class="pill">—</span>';
+
+  el.innerHTML =
+    '<div class="card">'+
+      '<div class="reco-title">综合统计推荐（历史 <b>'+t.count+'</b> 期：频率+遗漏回补+近期热度）</div>'+
+      '<div class="balls-row big">'+balls(t.recommend.red, t.recommend.blue,false)+'</div>'+
+      '<div class="cnt">红色球=推荐6个 · 蓝色球=推荐1个 · 仅供参考</div>'+
+    '</div>'+
+    '<div class="card"><div class="dims">'+
+      '<div class="dim full"><h4>红球得分 Top10（推荐依据）</h4>'+redBars+'</div>'+
+      '<div class="dim full"><h4>蓝球得分 Top5</h4>'+blueBars+'</div>'+
+      '<div class="dim"><h4>红球大小（小1-16 / 大17-33）</h4><div class="v">小 '+d.sizeAvg[0]+' · 大 '+d.sizeAvg[1]+'</div></div>'+
+      '<div class="dim"><h4>红球奇偶</h4><div class="v">奇 '+d.parAvg[0]+' · 偶 '+d.parAvg[1]+'</div></div>'+
+      '<div class="dim"><h4>红球质合</h4><div class="v">质 '+d.zhAvg[0]+' · 合 '+d.zhAvg[1]+'</div></div>'+
+      '<div class="dim"><h4>红球 012 路</h4><div class="v">0路 '+d.d012[0]+' · 1路 '+d.d012[1]+' · 2路 '+d.d012[2]+'</div></div>'+
+      '<div class="dim"><h4>区间分布（1-11/12-22/23-33）</h4><div class="v">'+d.zone[0]+' / '+d.zone[1]+' / '+d.zone[2]+'</div></div>'+
+      '<div class="dim"><h4>和值（均值 / 最近）</h4><div class="v">'+d.avgSum+' / '+d.lastSum+'</div></div>'+
+      '<div class="dim"><h4>AC值（均值 / 最近）</h4><div class="v">'+d.avgAC+' / '+d.lastAC+'</div></div>'+
+      '<div class="dim"><h4>跨度（均值 / 最近）</h4><div class="v">'+d.avgSpan+' / '+d.lastSpan+'</div></div>'+
+      '<div class="dim"><h4>连号出现率</h4><div class="v">'+d.connRate+'%</div></div>'+
+      '<div class="dim"><h4>重号出现率</h4><div class="v">'+d.repeatRate+'%</div></div>'+
+      '<div class="dim full"><h4>开奖星期分布</h4><div class="v">'+weekHtml+'</div></div>'+
+      '<div class="dim full"><h4>红球遗漏 Top8（久未出，回补参考）</h4><div class="v">'+redMissTop+'</div></div>'+
+      '<div class="dim full"><h4>蓝球遗漏 Top5</h4><div class="v">'+blueMissTop+'</div></div>'+
+      '<div class="dim full"><h4>尾数分布（0-9）</h4>'+tailBars+'</div>'+
+    '</div></div>'+
+    '<div class="warn">走势维度（大小/奇偶/质合/012路/和值/AC/跨度/区间/尾数/遗漏/连号/重号/周几）均由中彩网历史开奖号码本地计算，非抓取第三方图表。</div>';
+}
+
+/* ---------- 模块4：随机预测（基于模块3高概率候选随机生成） ---------- */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+function renderRandom(){
+  const el = document.getElementById('random-body');
+  const t = TREND;
+  if(!t){ el.innerHTML = '<div class="loading">预测走势数据未就绪</div>'; return; }
+  // 高概率候选池：红球取综合得分前12，蓝球取前6（取自模块3的 redRank/blueRank）
+  const redPool = t.redRank.slice(0,12);
+  const bluePool = t.blueRank.slice(0,6);
+  const redNums = shuffle(redPool).slice(0,6).map(x=>x.n).sort((a,b)=>a-b);
+  const blueNum = shuffle(bluePool).slice(0,1)[0].n;
+  el.innerHTML =
+    '<div class="card">'+
+      '<div class="reco-title">随机预测（基于「预测走势」高概率候选池）</div>'+
+      '<div class="balls-row big">'+balls(redNums, blueNum,false)+'</div>'+
+      '<div class="cnt">从红球得分前12、蓝球得分前6中随机抽 6红 + 1蓝</div>'+
+    '</div>'+
+    '<button id="random-again" class="btn-primary">再随机一组</button>'+
+    '<div class="warn">本模块为纯随机娱乐，从统计高概率号码中随机抽取，不保证中奖，不构成任何购彩建议。</div>';
+  document.getElementById('random-again').addEventListener('click', renderRandom);
+}
+
+/* ---------- Tab 切换 ---------- */
+function whenTrendReady(cb){
+  if(TREND) return cb();
+  const iv = setInterval(()=>{ if(TREND){ clearInterval(iv); cb(); } }, 150);
+  setTimeout(()=>clearInterval(iv), 30000);   // 30s 兜底，避免极端情况下一直转
+}
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+    if(b.dataset.tab==='random'){
+      if(TREND) renderRandom();
+      else { document.getElementById('random-body').innerHTML='<div class="loading">数据计算中，请稍候…</div>'; whenTrendReady(renderRandom); }
+    }
+  });
+});
+
+/* ---------- 初始化 ---------- */
+function renderAll(list){
+  const newest = list[0];
+  renderToday(newest);
+  renderHistory(list);
+  TREND = computeTrend(list);
+  renderTrend(TREND);
+}
+(async function init(){
+  renderAll(FALLBACK);                 // 先用内置真实快照（已含最近一期）秒渲染，TREND 立即可用，模块3/4 不依赖网络
+  // 后台静默尝试实时数据：成功则覆盖，失败不影响（公共CORS代理在中国大陆普遍不可用，故不弹提示）
+  fetchSSQ().then(({list, offline})=>{ if(!offline) renderAll(list); }).catch(()=>{});
+  // 页脚标注内置数据更新日期（透明、不刺眼）
+  const note = document.getElementById('data-note');
+  if(note && FALLBACK[0]) note.textContent = '内置数据更新至 ' + FALLBACK[0].date + '（最近120期）· 联网时自动尝试刷新最新一期';
+})();
+</script>
+<style>#toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;
+  padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;z-index:99;max-width:90%}
+  .data-note{text-align:center;font-size:11px;color:#9aa0a6;padding:10px 12px 18px}</style>
+</body>
+</html>
