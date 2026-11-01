@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#c62828">
 <title>双色球选号工具</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="双色球工具">
 <style>
   :root{
     --red:#e53935; --red-d:#b71c1c; --blue:#1565c0; --blue-d:#0d47a1;
@@ -14,10 +20,10 @@
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
     background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;max-width:560px;margin:0 auto;
     padding-bottom:env(safe-area-inset-bottom);}
-  header{background:linear-gradient(135deg,var(--red),var(--red-d));color:#fff;padding:16px 16px 14px;text-align:center}
+  header{background:linear-gradient(135deg,var(--red),var(--red-d));color:#fff;padding:calc(16px + env(safe-area-inset-top)) 16px 14px;text-align:center}
   header h1{margin:0;font-size:19px;font-weight:700;letter-spacing:1px}
   .disclaimer{margin-top:8px;font-size:11px;opacity:.92;background:rgba(0,0,0,.18);border-radius:6px;padding:5px 8px}
-  .tabs{display:flex;position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line)}
+  .tabs{display:flex;position:sticky;top:env(safe-area-inset-top);z-index:5;background:#fff;border-bottom:1px solid var(--line)}
   .tabs button{flex:1;border:0;background:none;padding:13px 2px;font-size:13.5px;color:var(--sub);font-weight:600;position:relative}
   .tabs button.active{color:var(--red)}
   .tabs button.active::after{content:"";position:absolute;left:22%;right:22%;bottom:0;height:3px;background:var(--red);border-radius:3px}
@@ -67,6 +73,13 @@
   .pill{display:inline-block;font-size:11px;color:var(--sub);background:#f0f0f3;border-radius:20px;padding:2px 9px;margin:2px}
   .btn-primary{display:block;width:100%;border:0;background:var(--red);color:#fff;font-size:15px;font-weight:700;padding:13px;border-radius:12px;margin:14px 0;cursor:pointer}
   .btn-primary:active{opacity:.85}
+  /* 模块4 随机玩法切换 */
+  .rmodes{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:4px 0 12px}
+  .rmode{border:1px solid var(--line);background:#fff;color:var(--sub);font-size:13px;padding:8px 12px;border-radius:20px;cursor:pointer}
+  .rmode.active{border-color:var(--red);color:var(--red);background:#fff0f0;font-weight:700}
+  .ball.dan{box-shadow:0 0 0 2px #f5b50a inset}
+  .grp-sep{width:1px;height:30px;background:var(--line);margin:0 6px;align-self:center}
+  .balls-row.big .grp-sep{height:38px}
 </style>
 </head>
 <body>
@@ -319,49 +332,93 @@ function renderTrend(t){
     '<div class="warn">走势维度（大小/奇偶/质合/012路/和值/AC/跨度/区间/尾数/遗漏/连号/重号/周几）均由中彩网历史开奖号码本地计算，非抓取第三方图表。</div>';
 }
 
-/* ---------- 模块4：随机预测（基于模块3高概率候选随机生成） ---------- */
+/* ---------- 模块4：随机预测（纯随机，多玩法） ---------- */
 function shuffle(arr){
   const a = arr.slice();
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
 }
+function range(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
+function randInt(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
+function pickReds(n){ return shuffle(range(1,33)).slice(0,n).sort((x,y)=>x-y); }
+function pickBlues(n){ return shuffle(range(1,16)).slice(0,n).sort((x,y)=>x-y); }
+function C(n,k){ if(k<0||k>n) return 0; let r=1; for(let i=0;i<k;i++) r = r*(n-i)/(i+1); return Math.round(r); }
+
+let randomMode = 'single';
+
+// 各玩法：gen() 返回 {red:[], blue:[], notes:注数, dan?:[红球胆码], tuo?:[红球拖码], blueDan?:true}
+const SSQ_MODES = {
+  single: { name:'单式',   gen(){ const r=pickReds(6), b=pickBlues(1); return {red:r, blue:b, notes:1}; } },
+  redf:   { name:'红复式', gen(){ const R=randInt(7,11), r=pickReds(R), b=pickBlues(1); return {red:r, blue:b, notes:C(R,6)}; } },
+  bluef:  { name:'蓝复式', gen(){ const r=pickReds(6), B=randInt(2,5), b=pickBlues(B); return {red:r, blue:b, notes:B}; } },
+  allf:   { name:'全复式', gen(){ const R=randInt(7,11), r=pickReds(R), B=randInt(2,5), b=pickBlues(B); return {red:r, blue:b, notes:C(R,6)*B}; } },
+  reddt:  { name:'红胆拖', gen(){
+      const d=randInt(1,4), R=randInt(6,11), tuo=Math.max(1,R-d);
+      const pool=shuffle(range(1,33));
+      const dan=pool.slice(0,d).sort((x,y)=>x-y);
+      const tuoA=pool.slice(d,d+tuo).sort((x,y)=>x-y);
+      const b=pickBlues(1);
+      return {red:dan.concat(tuoA), blue:b, notes:C(tuo,6-d), dan, tuo:tuoA}; } },
+  bluedt: { name:'蓝胆拖', gen(){
+      const r=pickReds(6), B=randInt(2,5), bp=shuffle(range(1,16));
+      const dan=bp.slice(0,1);
+      const tuoA=bp.slice(1,B).sort((x,y)=>x-y);
+      return {red:r, blue:dan.concat(tuoA), notes:B, dan, tuo:tuoA, blueDan:true}; } }
+};
+
+function ballN(n, type, isDan){
+  return '<span class="ball '+type+(isDan?' dan':'')+'">'+String(n).padStart(2,'0')+'</span>';
+}
+function renderBalls(red, blue, danRed, danBlue){
+  let h = red.map(n=> ballN(n,'red', danRed && danRed.has(n))).join('');
+  h += '<span class="grp-sep"></span>';
+  h += blue.map(n=> ballN(n,'blue', danBlue && danBlue.has(n))).join('');
+  return h;
+}
 
 function renderRandom(){
   const el = document.getElementById('random-body');
-  const t = TREND;
-  if(!t){ el.innerHTML = '<div class="loading">预测走势数据未就绪</div>'; return; }
-  // 高概率候选池：红球取综合得分前12，蓝球取前6（取自模块3的 redRank/blueRank）
-  const redPool = t.redRank.slice(0,12);
-  const bluePool = t.blueRank.slice(0,6);
-  const redNums = shuffle(redPool).slice(0,6).map(x=>x.n).sort((a,b)=>a-b);
-  const blueNum = shuffle(bluePool).slice(0,1)[0].n;
-  el.innerHTML =
-    '<div class="card">'+
-      '<div class="reco-title">随机预测（基于「预测走势」高概率候选池）</div>'+
-      '<div class="balls-row big">'+balls(redNums, blueNum,false)+'</div>'+
-      '<div class="cnt">从红球得分前12、蓝球得分前6中随机抽 6红 + 1蓝</div>'+
+  const mode = SSQ_MODES[randomMode];
+  const g = mode.gen();
+  const danRed = g.dan ? new Set(g.dan) : null;
+  const danBlue = g.blueDan ? new Set(g.dan) : null;
+  const money = g.notes * 2;
+
+  let desc = '';
+  if(randomMode==='single')      desc = '6红 + 1蓝，标准一注';
+  else if(randomMode==='redf')   desc = '红球 '+g.red.length+' 个 + 1蓝，复式共 '+g.notes+' 注';
+  else if(randomMode==='bluef')  desc = '6红 + 蓝球 '+g.blue.length+' 个，复式共 '+g.notes+' 注';
+  else if(randomMode==='allf')   desc = '红球 '+g.red.length+' 个 + 蓝球 '+g.blue.length+' 个，全复式共 '+g.notes+' 注';
+  else if(randomMode==='reddt')  desc = '红胆码 '+g.dan.length+' + 红拖码 '+g.tuo.length+'（合计 '+g.red.length+' 红）+ 1蓝，胆拖共 '+g.notes+' 注';
+  else if(randomMode==='bluedt') desc = '6红 + 蓝胆码 1 + 蓝拖码 '+(g.blue.length-1)+'，胆拖共 '+g.notes+' 注';
+
+  let html = '<div class="rmodes">';
+  Object.keys(SSQ_MODES).forEach(k=>{
+    html += '<button class="rmode'+(k===randomMode?' active':'')+'" data-mode="'+k+'">'+SSQ_MODES[k].name+'</button>';
+  });
+  html += '</div>';
+  html += '<div class="card">'+
+      '<div class="reco-title">随机'+mode.name+(g.dan?'（金边为胆码）':'')+'</div>'+
+      '<div class="balls-row big">'+renderBalls(g.red, g.blue, danRed, danBlue)+'</div>'+
+      '<div class="cnt">'+desc+' · 共 '+g.notes+' 注 / '+money+' 元</div>'+
     '</div>'+
     '<button id="random-again" class="btn-primary">再随机一组</button>'+
-    '<div class="warn">本模块为纯随机娱乐，从统计高概率号码中随机抽取，不保证中奖，不构成任何购彩建议。</div>';
+    '<div class="warn">本模块为纯随机娱乐：号码完全随机生成，与历史统计、走势、概率均无关，不保证中奖，不构成任何购彩建议。</div>';
+  el.innerHTML = html;
   document.getElementById('random-again').addEventListener('click', renderRandom);
+  el.querySelectorAll('.rmode').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ randomMode = btn.dataset.mode; renderRandom(); });
+  });
 }
 
 /* ---------- Tab 切换 ---------- */
-function whenTrendReady(cb){
-  if(TREND) return cb();
-  const iv = setInterval(()=>{ if(TREND){ clearInterval(iv); cb(); } }, 150);
-  setTimeout(()=>clearInterval(iv), 30000);   // 30s 兜底，避免极端情况下一直转
-}
 document.querySelectorAll('.tabs button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     document.getElementById('tab-'+b.dataset.tab).classList.add('active');
-    if(b.dataset.tab==='random'){
-      if(TREND) renderRandom();
-      else { document.getElementById('random-body').innerHTML='<div class="loading">数据计算中，请稍候…</div>'; whenTrendReady(renderRandom); }
-    }
+    if(b.dataset.tab==='random'){ renderRandom(); }
   });
 });
 
@@ -418,5 +475,11 @@ async function loadLive(){
 <style>#toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;
   padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;z-index:99;max-width:90%}
   .data-note{text-align:center;font-size:11px;color:#9aa0a6;padding:10px 12px 18px}</style>
+<script>
+// 注册 Service Worker：离线可开、秒开缓存（云函数接口仍实时走网络）
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
+</script>
 </body>
 </html>
