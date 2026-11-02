@@ -83,14 +83,20 @@
 </style>
 </head>
 <body>
+<div id="update-banner" class="update-banner">
+  <span class="ub-text" id="ub-text">发现新版本</span>
+  <span class="ub-btn" id="ub-update">立即更新</span>
+  <span class="ub-close" id="ub-close">×</span>
+</div>
 <header>
   <h1>双色球选号工具</h1>
   <div class="disclaimer">⚠️ 仅供娱乐参考 · 所有推荐均为历史数据统计 · 不构成任何购彩建议</div>
 </header>
 <div id="data-note" class="data-note"></div>
+<div class="app-actions"><span id="btn-check-update" class="app-action">检查更新</span></div>
 
 <nav class="tabs">
-  <button data-tab="today" class="active">今日开奖</button>
+  <button data-tab="today" class="active">今期开奖</button>
   <button data-tab="history">往期开奖</button>
   <button data-tab="trend">预测走势</button>
   <button data-tab="random">随机预测</button>
@@ -474,12 +480,94 @@ async function loadLive(){
 </script>
 <style>#toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;
   padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;z-index:99;max-width:90%}
-  .data-note{text-align:center;font-size:11px;color:#9aa0a6;padding:10px 12px 18px}</style>
+  .data-note{text-align:center;font-size:11px;color:#9aa0a6;padding:10px 12px 18px}
+  .app-actions{text-align:center;padding:0 12px 16px}
+  .app-action{display:inline-block;font-size:11px;color:#9aa0a6;border:1px solid var(--line);
+    border-radius:14px;padding:4px 14px;cursor:pointer}
+  .app-action:active{background:#f0f0f3}
+  .update-banner{background:linear-gradient(135deg,#1565c0,#0d47a1);color:#fff;font-size:13px;
+    padding:10px 14px;display:none;align-items:center;gap:10px;cursor:pointer}
+  .update-banner.show{display:flex}
+  .update-banner .ub-text{flex:1;line-height:1.4}
+  .update-banner .ub-btn{background:#fff;color:#0d47a1;border-radius:14px;padding:5px 12px;
+    font-weight:700;font-size:12px;white-space:nowrap}
+  .update-banner .ub-close{opacity:.85;font-size:18px;padding:0 4px;line-height:1}</style>
 <script>
 // 注册 Service Worker：离线可开、秒开缓存（云函数接口仍实时走网络）
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
 }
+</script>
+<script>
+// ===== 检查更新（在线网页模式：比对 GitHub Pages 上的 version.json）=====
+var APP_VERSION = '2026.11.2';      // 当前内置版本，仅首次兜底比对用
+var latestVersion = '';
+function parseVer(v){ return String(v||'').split('.').map(function(n){ return parseInt(n,10)||0; }); }
+function cmpVer(a,b){
+  var A=parseVer(a), B=parseVer(b), n=Math.max(A.length,B.length), i, x, y;
+  for(i=0;i<n;i++){ x=A[i]||0; y=B[i]||0; if(x!==y) return x<y?-1:1; }
+  return 0;
+}
+function showUpdateBanner(latest, note){
+  latestVersion = latest;
+  var banner = document.getElementById('update-banner');
+  document.getElementById('ub-text').textContent = '发现新版本 v'+latest+(note?('：'+note):'')+'，点击立即更新';
+  banner.classList.add('show');
+}
+function doUpdate(){
+  var done = function(){ location.reload(true); };
+  if('caches' in window){
+    caches.keys().then(function(keys){ return Promise.all(keys.map(function(k){ return caches.delete(k); })); })
+      .then(done).catch(done);
+  } else { done(); }
+}
+async function checkUpdate(){
+  try{
+    var r = await fetch('./version.json?t='+Date.now(), {cache:'no-store'});
+    if(!r.ok) return;
+    var d = await r.json();
+    var latest = d.version;
+    if(!latest) return;
+    var seen = localStorage.getItem('app_seen_version') || APP_VERSION;
+    var dismissed = localStorage.getItem('app_dismissed_version') || '';
+    if(cmpVer(latest, seen) > 0 && cmpVer(latest, dismissed) > 0){ showUpdateBanner(latest, d.note); }
+  }catch(e){ /* 离线或网络失败，忽略 */ }
+}
+document.getElementById('ub-update').onclick = function(e){ e.stopPropagation();
+  localStorage.setItem('app_seen_version', latestVersion || APP_VERSION);
+  localStorage.removeItem('app_dismissed_version');
+  doUpdate(); };
+document.getElementById('ub-close').onclick = function(e){ e.stopPropagation();
+  localStorage.setItem('app_dismissed_version', latestVersion);
+  document.getElementById('update-banner').classList.remove('show'); };
+document.getElementById('update-banner').onclick = function(){ doUpdate(); };
+// 手动「检查更新」按钮：点击后给明确反馈
+async function manualCheckUpdate(btn){
+  var old = btn.textContent;
+  btn.textContent = '检查中…';
+  try{
+    var r = await fetch('./version.json?t='+Date.now(), {cache:'no-store'});
+    if(!r.ok) throw new Error('no');
+    var d = await r.json();
+    var latest = d.version;
+    if(!latest) throw new Error('empty');
+    var seen = localStorage.getItem('app_seen_version') || APP_VERSION;
+    var dismissed = localStorage.getItem('app_dismissed_version') || '';
+    if(cmpVer(latest, seen) > 0 && cmpVer(latest, dismissed) > 0){
+      showUpdateBanner(latest, d.note);
+      btn.textContent = '发现新版本';
+    } else {
+      localStorage.setItem('app_seen_version', latest);
+      btn.textContent = '已是最新 v'+latest;
+    }
+  }catch(e){
+    btn.textContent = '检查失败（可能离线）';
+  }
+  setTimeout(function(){ btn.textContent = old; }, 2500);
+}
+document.getElementById('btn-check-update').onclick = function(){ manualCheckUpdate(this); };
+// 首屏渲染后延迟自动检查，避免抢资源
+window.addEventListener('load', function(){ setTimeout(checkUpdate, 3000); });
 </script>
 </body>
 </html>
