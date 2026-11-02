@@ -93,7 +93,6 @@
   <div class="disclaimer">⚠️ 仅供娱乐参考 · 所有推荐均为历史数据统计 · 不构成任何购彩建议</div>
 </header>
 <div id="data-note" class="data-note"></div>
-<div class="app-actions"><span id="btn-check-update" class="app-action">检查更新</span></div>
 
 <nav class="tabs">
   <button data-tab="today" class="active">今期开奖</button>
@@ -105,6 +104,10 @@
 <main>
   <section id="tab-today" class="tab-panel active">
     <div id="today-body"><div class="loading">加载中…</div></div>
+    <div class="app-actions">
+      <span class="app-version" id="app-version">当前版本 v2026.11.2</span>
+      <span id="btn-check-update" class="update-btn">检查更新</span>
+    </div>
   </section>
 
   <section id="tab-history" class="tab-panel">
@@ -481,7 +484,10 @@ async function loadLive(){
 <style>#toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;
   padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;z-index:99;max-width:90%}
   .data-note{text-align:center;font-size:11px;color:#9aa0a6;padding:10px 12px 18px}
-  .app-actions{text-align:center;padding:0 12px 16px}
+  .app-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 12px 22px;padding:10px 14px;background:#f5f6f8;border-radius:12px}
+  .app-version{font-size:12px;color:#9aa0a6}
+  .update-btn{flex:0 0 auto;padding:7px 16px;background:linear-gradient(135deg,#e60012,#b3000e);color:#fff;font-size:13px;border-radius:20px;cursor:pointer;user-select:none;box-shadow:0 2px 6px rgba(230,0,18,.25)}
+  .update-btn:active{transform:translateY(1px)}
   .app-action{display:inline-block;font-size:11px;color:#9aa0a6;border:1px solid var(--line);
     border-radius:14px;padding:4px 14px;cursor:pointer}
   .app-action:active{background:#f0f0f3}
@@ -559,6 +565,7 @@ async function manualCheckUpdate(btn){
     } else {
       localStorage.setItem('app_seen_version', latest);
       btn.textContent = '已是最新 v'+latest;
+      var ve = document.getElementById('app-version'); if(ve) ve.textContent = '当前版本 v'+latest;
     }
   }catch(e){
     btn.textContent = '检查失败（可能离线）';
@@ -566,8 +573,16 @@ async function manualCheckUpdate(btn){
   setTimeout(function(){ btn.textContent = old; }, 2500);
 }
 document.getElementById('btn-check-update').onclick = function(){ manualCheckUpdate(this); };
-// 首屏渲染后延迟自动检查，避免抢资源
-window.addEventListener('load', function(){ setTimeout(checkUpdate, 3000); });
+// 首屏渲染后：刷新版本号标签 + 延迟自动检查，避免抢资源
+function refreshVersionLabel(){
+  var el = document.getElementById('app-version');
+  if(!el) return;
+  fetch('./version.json?t='+Date.now(), {cache:'no-store'})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ if(d && d.version) el.textContent = '当前版本 v'+d.version; })
+    .catch(function(){});
+}
+window.addEventListener('load', function(){ refreshVersionLabel(); setTimeout(checkUpdate, 3000); });
 </script>
 </body>
 </html>
